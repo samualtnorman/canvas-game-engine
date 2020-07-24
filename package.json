@@ -1,6 +1,6 @@
 {
   "name": "canvas-sprite-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Game Engine to work with HTML5 Canvas Element",
   "main": "index.js",
   "scripts": {
@@ -31,5 +31,9 @@
   "homepage": "https://github.com/samualtnorman/canvas-sprite-engine#readme",
   "devDependencies": {
     "typescript": "^3.9.7"
-  }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ]
 }
