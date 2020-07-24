@@ -1,5 +1,5 @@
 {
-  "name": "canvas-game-engine",
+  "name": "canvas-sprite-engine",
   "version": "1.0.0",
   "description": "Game Engine to work with HTML5 Canvas Element",
   "main": "index.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/samualtnorman/canvas-game-engine.git"
+    "url": "git+https://github.com/samualtnorman/canvas-sprite-engine.git"
   },
   "keywords": [
     "html",
@@ -26,9 +26,9 @@
   "author": "Samual Norman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/samualtnorman/canvas-game-engine/issues"
+    "url": "https://github.com/samualtnorman/canvas-sprite-engine/issues"
   },
-  "homepage": "https://github.com/samualtnorman/canvas-game-engine#readme",
+  "homepage": "https://github.com/samualtnorman/canvas-sprite-engine#readme",
   "devDependencies": {
     "typescript": "^3.9.7"
   }
