@@ -32,6 +32,9 @@
 	"bugs": "https://github.com/samualtnorman/canvas-sprite-engine/issues",
 	"homepage": "https://github.com/samualtnorman/canvas-sprite-engine#readme",
 	"devDependencies": {
+		"@types/node": "^14.14.11",
+		"@types/semver": "^7.3.4",
+		"semver": "^7.3.4",
 		"typescript": "^4.0.2"
 	},
 	"files": [
