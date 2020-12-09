@@ -1,39 +1,40 @@
 {
-  "name": "canvas-sprite-engine",
-  "version": "1.0.1",
-  "description": "Game Engine to work with HTML5 Canvas Element",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm install && tsc"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/samualtnorman/canvas-sprite-engine.git"
-  },
-  "keywords": [
-    "html",
-    "html5",
-    "game",
-    "engine",
-    "javascript",
-    "js",
-    "ts",
-    "typescript",
-    "sprite",
-    "sprites"
-  ],
-  "author": "Samual Norman",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/samualtnorman/canvas-sprite-engine/issues"
-  },
-  "homepage": "https://github.com/samualtnorman/canvas-sprite-engine#readme",
-  "devDependencies": {
-    "typescript": "^4.0.2"
-  },
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ]
+	"name": "canvas-sprite-engine",
+	"version": "0.0.1",
+	"description": "Game Engine to work with HTML5 Canvas Element",
+	"main": "index",
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"test": "tsc --noEmit"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/samualtnorman/canvas-sprite-engine.git"
+	},
+	"keywords": [
+		"javascript",
+		"game",
+		"html",
+		"library",
+		"typescript",
+		"html5",
+		"js",
+		"game-engine",
+		"sprites",
+		"engine",
+		"ts",
+		"sprite",
+		"html5-canvas-element"
+	],
+	"author": "Samual Norman",
+	"license": "GPL-3.0-or-later",
+	"bugs": "https://github.com/samualtnorman/canvas-sprite-engine/issues",
+	"homepage": "https://github.com/samualtnorman/canvas-sprite-engine#readme",
+	"devDependencies": {
+		"typescript": "^4.0.2"
+	},
+	"files": [
+		"index.d.ts"
+	]
 }
