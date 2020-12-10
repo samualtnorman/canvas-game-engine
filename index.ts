@@ -1,65 +1,338 @@
-interface SpriteMouseEvent {
-	altKey: boolean;
-	button: number;
-	ctrlKey: boolean;
-	movementX: number;
-	movementY: number;
-	shiftKey: boolean;
-	x: number;
-	y: number;
+import { assert } from "./lib"
+
+interface CursorEvent {
+	altKey: boolean
+	button: number
+	ctrlKey: boolean
+	movementX: number
+	movementY: number
+	shiftKey: boolean
+	x: number
+	y: number
 	timeStamp: number
 }
 
-interface LooseObject<Value = any> {
-	[key: string]: Value | undefined
+type CursorEventHandler = (event: CursorEvent) => any
+
+export enum CursorEventType {
+	Down,
+	Up,
+	Enter,
+	Move,
+	Leave
+	/* TODO Over
+		when cursor skips over sprite, line from old location to new
+		passes through sprite
+	*/
 }
 
-type SpriteMouseEventHandler = (event: SpriteMouseEvent) => any
-
 export class Texture extends Image {
-	constructor(public src: string) {
-		super()
+	constructor(src: string, options?: Partial<{
+		width: number
+		height: number
+	}>) {
+		const { width, height } = options || {}
+
+		super(width, height)
+
+		this.src = src
 	}
 }
 
-export const txt_missing = new Texture("data:image/png;base64,iVBORw0KGgoAAAANS\
-UhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVQ4jWP4z/D/Pz7MwMCAH48aMCwMIKSACAtGDRj6BgAA\
-MbX+EPmqY6kAAAAASUVORK5CYII=")
+export const missingTexture = new Texture("data:image/png;base64,iVBORw0KGgoAAA\
+ANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVQ4jWP4z/D/Pz7MwMCAH48aMCwMIKSACAtGDRj6B\
+gAAMbX+EPmqY6kAAAAASUVORK5CYII=")
 
-const sprites: Sprite[] = []
-export const canvas = document.createElement("canvas")
-export const context = canvas.getContext("2d")
-let scale = 1
-export const offset = { x: 0, y: 0 }
+export class Engine {
+	context: CanvasRenderingContext2D
+	sprites: Sprite[] = []
+	scale = 1
 
-export class Sprite {
+	constructor(public canvas = document.createElement("canvas")) {
+		const context = canvas.getContext("2d")
+
+		assert(context)
+
+		this.context = context
+
+		canvas.addEventListener("mouseenter", ({
+			pageX,
+			pageY,
+			timeStamp,
+			altKey,
+			buttons: button,
+			ctrlKey,
+			movementX,
+			movementY,
+			shiftKey
+		}) => {
+			const x = (pageX - canvas.offsetLeft) / this.scale
+			const y = (pageY - canvas.offsetTop) / this.scale
+
+			for (const sprite of this.sprites) {
+				if (sprite.overlapsPoint(x, y))
+					for (const handler of sprite.eventHandlers[CursorEventType.Enter])
+						handler({
+							x: x - sprite.x,
+							y: y - sprite.y,
+							button, altKey, timeStamp, ctrlKey,
+							movementX, movementY, shiftKey
+						})
+			}
+		})
+
+		canvas.addEventListener("mousemove", ({
+			pageX,
+			pageY,
+			timeStamp,
+			altKey,
+			buttons: button,
+			ctrlKey,
+			movementX,
+			movementY,
+			shiftKey
+		}) => {
+			movementX = movementX / this.scale
+			movementY = movementY / this.scale
+
+			const x = (pageX - canvas.offsetLeft) / this.scale
+			const y = (pageY - canvas.offsetTop) / this.scale
+			const oldX = x - movementX
+			const oldY = y - movementY
+			const cursorLeaveHandlers: Sprite[] = []
+			const cursorMoveHandlers: Sprite[] = []
+			const cursorEnterHandlers: Sprite[] = []
+
+			for (const sprite of this.sprites) {
+				const overlapsOldCursorPosition = sprite.overlapsPoint(oldX, oldY)
+				const overlapsNewCursorPosition = sprite.overlapsPoint(x, y)
+
+				if (overlapsOldCursorPosition && overlapsNewCursorPosition)
+					cursorMoveHandlers.push(sprite)
+				else if (overlapsOldCursorPosition)
+					cursorLeaveHandlers.push(sprite)
+				else if (overlapsNewCursorPosition)
+					cursorEnterHandlers.push(sprite)
+			}
+
+			for (const sprite of cursorLeaveHandlers)
+				callHandlers(sprite, CursorEventType.Leave)
+
+			for (const sprite of cursorMoveHandlers)
+				callHandlers(sprite, CursorEventType.Move)
+
+			for (const sprite of cursorEnterHandlers)
+				callHandlers(sprite, CursorEventType.Enter)
+
+			function callHandlers(sprite: Sprite, eventType: CursorEventType) {
+				for (const handler of sprite.eventHandlers[eventType])
+					handler({
+						x: x - sprite.x,
+						y: y - sprite.y,
+						button, altKey, timeStamp, ctrlKey,
+						movementX, movementY, shiftKey
+					})
+			}
+		})
+
+		canvas.addEventListener("mouseleave", ({
+			pageX,
+			pageY,
+			timeStamp,
+			altKey,
+			buttons: button,
+			ctrlKey,
+			movementX,
+			movementY,
+			shiftKey
+		}) => {
+			const x = (pageX - canvas.offsetLeft) / this.scale
+			const y = (pageY - canvas.offsetTop) / this.scale
+
+			for (const sprite of this.sprites)
+				if (sprite.overlapsPoint(x, y))
+					for (const handler of sprite.eventHandlers[CursorEventType.Enter])
+						handler({
+							x: x - sprite.x,
+							y: y - sprite.y,
+							button, altKey, timeStamp, ctrlKey,
+							movementX, movementY, shiftKey
+						})
+		})
+
+		canvas.addEventListener("mousedown", ({
+			pageX,
+			pageY,
+			timeStamp,
+			altKey,
+			buttons: button,
+			ctrlKey,
+			movementX,
+			movementY,
+			shiftKey
+		}: MouseEvent) => {
+			const x = (pageX - canvas.offsetLeft) / this.scale
+			const y = (pageY - canvas.offsetTop) / this.scale
+
+			for (const sprite of this.sprites)
+				if (sprite.overlapsPoint(x, y))
+					for (const handler of sprite.eventHandlers[CursorEventType.Down])
+						handler({
+							x: x - sprite.x,
+							y: y - sprite.y,
+							movementX: movementX / this.scale,
+							movementY: movementY / this.scale,
+							altKey, timeStamp, button, ctrlKey, shiftKey
+						})
+		})
+
+		canvas.addEventListener("mouseup", ({
+			pageX,
+			pageY,
+			timeStamp,
+			altKey,
+			buttons: button,
+			ctrlKey,
+			movementX,
+			movementY,
+			shiftKey
+		}: MouseEvent) => {
+			const x = (pageX - canvas.offsetLeft) / this.scale
+			const y = (pageY - canvas.offsetTop) / this.scale
+
+			for (const sprite of this.sprites)
+				if (sprite.overlapsPoint(x, y))
+					for (const handler of sprite.eventHandlers[CursorEventType.Up])
+						handler({
+							x: x - sprite.x,
+							y: y - sprite.y,
+							movementX: movementX / this.scale,
+							movementY: movementY / this.scale,
+							altKey, timeStamp, button, ctrlKey, shiftKey
+						})
+		})
+
+		requestAnimationFrame(this.main)
+	}
+
+	newSprite({
+		x, y, layer, hidden, texture, scripts, width, index, processes, height
+	}: Partial<Sprite> = {}) {
+		new Sprite(this, {
+			x, y, layer, hidden, texture, scripts, width, index, processes, height
+		})
+	}
+
+	newBitmapFont(chars: string, texture: Texture, {
+		spaceWidth,
+		horizontalMargin = 1,
+		verticalMargin = 1
+	}: Partial<BitmapFont>) {
+		new BitmapFont(this, chars, texture, {
+			spaceWidth, horizontalMargin, verticalMargin
+		})
+	}
+
+	autoResize() {
+		this.onResize()
+
+		addEventListener("resize", this.onResize)
+	}
+
+	onResize() {
+		this.scale = Math.min(
+			innerHeight / this.canvas.height,
+			innerWidth / this.canvas.width
+		)
+
+		if (this.scale > 1) {
+			if (innerHeight < innerWidth)
+				this.scale = Math.floor(this.scale)
+
+			this.canvas.style.imageRendering = "crisp-edges"
+			this.canvas.style.imageRendering = "pixelated"
+		} else
+			this.canvas.style.imageRendering = ""
+
+		this.canvas.style.height = `${this.canvas.height * this.scale}px`
+		this.canvas.style.width = `${this.canvas.width * this.scale}px`
+	}
+
+	main() {
+		if (!this.context)
+			throw new Error("no context :(")
+
+		requestAnimationFrame(this.main)
+
+		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+		this.sprites.sort((a, b) => a.layer - b.layer)
+
+		for (const sprite of this.sprites) {
+			sprite.scripts.length && sprite.scripts[0].next().done &&
+				sprite.scripts.shift()
+
+			const postprocFinished: number[] = []
+
+			for (let i = 0; i < sprite.processes.length; i++)
+				sprite.processes[i].next().done &&
+					postprocFinished.push(i)
+
+			for (const animationDone of postprocFinished.reverse())
+				sprite.processes.splice(animationDone, 1)
+
+			if (!sprite.hidden) {
+				const width = sprite.width || sprite.height
+				const height = sprite.height || sprite.width
+
+				if (width && height)
+					this.context.drawImage(
+						sprite.texture,
+						Math.floor(
+							sprite.index % (sprite.texture.width / width)
+						) * width,
+						Math.floor(
+							sprite.index / (sprite.texture.width / width)
+						) * height,
+						width,
+						height,
+						sprite.x,
+						sprite.y,
+						width,
+						height
+					)
+				else
+					this.context.drawImage(sprite.texture, sprite.x, sprite.y)
+			}
+		}
+	}
+}
+
+class Sprite {
 	x: number
 	y: number
 	layer: number
 	hidden: boolean
 	texture: Texture
-	onCursorMove?: SpriteMouseEventHandler
-	onCursorDown?: SpriteMouseEventHandler
-	onCursorUp?: SpriteMouseEventHandler
-	onCursorEnter?: SpriteMouseEventHandler
-	onCursorLeave?: SpriteMouseEventHandler
 	scripts: Generator[]
 	width?: number
 	height?: number
 	index: number
 	processes: Generator[]
 
-	constructor({
+	eventHandlers: Record<CursorEventType, CursorEventHandler[]> = {
+		[CursorEventType.Down]: [],
+		[CursorEventType.Up]: [],
+		[CursorEventType.Enter]: [],
+		[CursorEventType.Move]: [],
+		[CursorEventType.Leave]: []
+	}
+
+	constructor(public engine: Engine, {
 		x = 0,
 		y = 0,
 		layer = 0,
 		hidden = false,
-		texture = txt_missing,
-		onCursorDown,
-		onCursorEnter,
-		onCursorLeave,
-		onCursorMove,
-		onCursorUp,
+		texture = missingTexture,
 		scripts = [],
 		width,
 		index = 0,
@@ -71,18 +344,19 @@ export class Sprite {
 		this.layer = layer
 		this.hidden = hidden
 		this.texture = texture
-		this.onCursorDown = onCursorDown
-		this.onCursorEnter = onCursorEnter
-		this.onCursorLeave = onCursorLeave
-		this.onCursorMove = onCursorMove
-		this.onCursorUp = onCursorUp
 		this.scripts = scripts
 		this.width = width
 		this.index = index
 		this.processes = processes
 		this.height = height
 
-		sprites.push(this)
+		engine.sprites.push(this)
+	}
+
+	on(type: CursorEventType, handler: CursorEventHandler) {
+		this.eventHandlers[type].push(handler)
+
+		return this
 	}
 
 	overlapsPoint(x: number, y: number) {
@@ -103,76 +377,93 @@ export class Sprite {
 	}
 
 	remove() {
+		const { sprites } = this.engine
+
 		sprites.splice(sprites.indexOf(this), 1)
+
+		return this
 	}
 }
 
-export class Charset {
+export class BitmapFont {
 	texture: Texture
-	chars: LooseObject<{ width: number, offsetY: number }> = {}
 	height: number
 	x = 0
 	y = 0
 	spaceWidth: number
-	horMargin: number
-	verMargin: number
+	horizontalMargin: number
+	verticalMargin: number
 
-	constructor(chars: string, { spaceWidth, horMargin = 1, verMargin = 1, texture }: { spaceWidth?: number, horMargin?: number, verMargin?: number, texture: Texture }) {
+	characters: Record<string, {
+		width: number
+		offsetY: number
+	}> = {}
+
+	constructor(public engine: Engine, chars: string, texture: Texture, {
+		spaceWidth,
+		horizontalMargin = 1,
+		verticalMargin = 1
+	}: Partial<BitmapFont>) {
 		this.texture = texture
 		this.height = 1
 		this.spaceWidth = spaceWidth ?? texture.width
-		this.horMargin = horMargin
-		this.verMargin = verMargin
-		
-		const onload = () => {
-			this.height = (texture.height + 1) / (chars.length + 1) - 1
-			const canvas = document.createElement("canvas")
-			const context = canvas.getContext("2d")
-
-			if (context) {
-				canvas.width = texture.width
-				canvas.height = texture.height
-				context.drawImage(texture, 0, 0)
-
-				this.chars.unknown = { offsetY: 0, width: texture.width }
-
-				loop:
-				for (let x = texture.width; x--;)
-					for (let y = 0; y < this.height; y++)
-						if (context.getImageData(x, y, 1, 1).data[3]) {
-							this.chars.unknown.width = x + 1
-							break loop
-						}
-				
-				for (let i = 0; i < chars.length; i++) {
-					const char = { offsetY: (this.height + 1) * (i + 1), width: texture.width }
-					this.chars[chars[i]] = char
-
-					loop:
-					for (let x = texture.width; x--;)
-						for (let y = char.offsetY; y < char.offsetY + this.height; y++)
-							if (context.getImageData(x, y, 1, 1).data[3]) {
-								char.width = x + 1
-								break loop
-							}
-				}
-			}
-		}
+		this.horizontalMargin = horizontalMargin
+		this.verticalMargin = verticalMargin
 
 		if (texture.complete)
-			onload()
+			this.onLoad(chars)
 		else
-			texture.onload = onload
+			texture.addEventListener("load", () => this.onLoad(chars))
 	}
 
-	drawChar(charStr: string, startX = this.x, startY = this.y) {
+	onLoad(chars: string) {
+		this.height = (this.texture.height + 1) / (chars.length + 1) - 1
+		const canvas = document.createElement("canvas")
+		const context = canvas.getContext("2d")
+
+		if (context) {
+			canvas.width = this.texture.width
+			canvas.height = this.texture.height
+			context.drawImage(this.texture, 0, 0)
+
+			this.characters.unknown = { offsetY: 0, width: this.texture.width }
+
+			loop:
+			for (let x = this.texture.width; x--;)
+				for (let y = 0; y < this.height; y++)
+					if (context.getImageData(x, y, 1, 1).data[3]) {
+						this.characters.unknown.width = x + 1
+						break loop
+					}
+
+			for (let i = 0; i < chars.length; i++) {
+				const char = {
+					offsetY: (this.height + 1) * (i + 1),
+					width: this.texture.width
+				}
+
+				this.characters[chars[i]] = char
+
+				loop:
+				for (let x = this.texture.width; x--;)
+					for (
+						let y = char.offsetY;
+						y < char.offsetY + this.height;
+						y++
+					) if (context.getImageData(x, y, 1, 1).data[3]) {
+						char.width = x + 1
+						break loop
+					}
+			}
+		}
+	}
+
+	drawCharacter(charStr: string, startX = this.x, startY = this.y) {
+		const char = this.characters[charStr] || this.characters.unknown
+		const { context } = this.engine
+
 		this.x = startX
 		this.y = startY
-
-		if (!context)
-			throw new Error("no context :(")
-
-		const char = this.chars[charStr] || this.chars.unknown
 
 		if (!char)
 			return 0
@@ -185,7 +476,7 @@ export class Charset {
 			char.width, this.height
 		)
 
-		this.x += char.width + this.horMargin
+		this.x += char.width + this.horizontalMargin
 	}
 
 	drawString(string: string, startX = this.x, startY = this.y) {
@@ -196,204 +487,10 @@ export class Charset {
 			if (charStr == " ")
 				this.x += this.spaceWidth
 			else if (charStr == "\n") {
-				this.y += this.height + this.verMargin
+				this.y += this.height + this.verticalMargin
 				this.x = startX
 			} else
-				this.drawChar(charStr)
-	}
-}
-
-canvas.onmousemove = ({
-	pageX,
-	pageY,
-	timeStamp,
-	altKey,
-	buttons,
-	ctrlKey,
-	movementX,
-	movementY,
-	shiftKey
-}: MouseEvent) => {
-	movementX = movementX / scale
-	movementY = movementY / scale
-	const x = (pageX - canvas.offsetLeft) / scale
-	const y = (pageY - canvas.offsetTop) / scale
-	const oldX = x - movementX
-	const oldY = y - movementY
-
-	const cursorLeaveSprites: Sprite[] = []
-	const cursorMoveSprites: Sprite[] = []
-	const cursorEnterSprites: Sprite[] = []
-
-	for (const sprite of sprites) {
-		const overlapsOldCursorPos = sprite.overlapsPoint(oldX, oldY)
-		const overlapsNewCursorPos = sprite.overlapsPoint(x, y)
-
-		if (overlapsOldCursorPos && overlapsNewCursorPos)
-			cursorMoveSprites.push(sprite)
-		else if (overlapsOldCursorPos)
-			cursorLeaveSprites.push(sprite)
-		else if (overlapsNewCursorPos)
-			cursorEnterSprites.push(sprite)
-	}
-
-	for (const sprite of cursorLeaveSprites)
-		sprite.onCursorLeave && sprite.onCursorLeave({
-			x: x - sprite.x,
-			y: y - sprite.y,
-			button: buttons,
-			altKey, timeStamp, ctrlKey, movementX, movementY,
-			shiftKey
-		})
-
-	for (const sprite of cursorMoveSprites)
-		sprite.onCursorMove && sprite.onCursorMove({
-			x: x - sprite.x,
-			y: y - sprite.y,
-			button: buttons,
-			altKey, timeStamp, ctrlKey, movementX, movementY,
-			shiftKey
-		})
-
-	for (const sprite of cursorEnterSprites)
-		sprite.onCursorEnter && sprite.onCursorEnter({
-			x: x - sprite.x,
-			y: y - sprite.y,
-			button: buttons,
-			altKey, timeStamp, ctrlKey, movementX, movementY,
-			shiftKey
-		})
-}
-
-canvas.onmouseleave = canvas.onmousemove
-
-canvas.onmousedown = ({
-	pageX,
-	pageY,
-	timeStamp,
-	altKey,
-	buttons,
-	ctrlKey,
-	movementX,
-	movementY,
-	shiftKey
-}: MouseEvent) => {
-	const x = (pageX - canvas.offsetLeft) / scale
-	const y = (pageY - canvas.offsetTop) / scale
-
-	for (const sprite of sprites)
-		if (sprite.overlapsPoint(x, y)) {
-			sprite.onCursorDown && sprite.onCursorDown({
-				x: x - sprite.x,
-				y: y - sprite.y,
-				altKey,
-				timeStamp,
-				button: buttons,
-				ctrlKey,
-				movementX: movementX / scale,
-				movementY: movementY / scale,
-				shiftKey
-			})
-		}
-}
-
-canvas.onmouseup = ({
-	pageX,
-	pageY,
-	timeStamp,
-	altKey,
-	buttons,
-	ctrlKey,
-	movementX,
-	movementY,
-	shiftKey
-}: MouseEvent) => {
-	const x = (pageX - canvas.offsetLeft) / scale
-	const y = (pageY - canvas.offsetTop) / scale
-
-	for (const sprite of sprites)
-		if (sprite.overlapsPoint(x, y)) {
-			sprite.onCursorUp && sprite.onCursorUp({
-				x: x - sprite.x,
-				y: y - sprite.y,
-				altKey,
-				timeStamp,
-				button: buttons,
-				ctrlKey,
-				movementX: movementX / scale,
-				movementY: movementY / scale,
-				shiftKey
-			})
-		}
-}
-
-export function autoResize () {
-	onResize()
-	addEventListener("resize", onResize)
-}
-
-function onResize() {
-	scale = Math.min(
-		innerHeight / canvas.height,
-		innerWidth / canvas.width
-	)
-
-	if (scale > 1) {
-		if (innerHeight < innerWidth)
-			scale = Math.floor(scale)
-		
-		canvas.style.imageRendering = "crisp-edges"
-		canvas.style.imageRendering = "pixelated"
-	} else
-		canvas.style.imageRendering = ""
-
-	canvas.style.height = `${canvas.height * scale}px`
-	canvas.style.width = `${canvas.width * scale}px`
-}
-
-requestAnimationFrame(main)
-
-function main() {
-	if (!context)
-		throw new Error("no context :(")
-
-	requestAnimationFrame(main)
-
-	context.clearRect(0, 0, canvas.width, canvas.height)
-	sprites.sort((a, b) => a.layer - b.layer)
-
-	for (const sprite of sprites) {
-		sprite.scripts.length && sprite.scripts[0].next().done &&
-			sprite.scripts.shift()
-
-		const postprocFinished: number[] = []
-
-		for (let i = 0; i < sprite.processes.length; i++)
-			sprite.processes[i].next().done &&
-				postprocFinished.push(i)
-
-		for (const animationDone of postprocFinished.reverse())
-			sprite.processes.splice(animationDone, 1)
-
-		if (!sprite.hidden) {
-			const width = sprite.width || sprite.height
-			const height = sprite.height || sprite.width
-
-			if (width && height)
-				context.drawImage(
-					sprite.texture,
-					Math.floor(sprite.index % (sprite.texture.width / width)) * width,
-					Math.floor(sprite.index / (sprite.texture.width / width)) * height,
-					width,
-					height,
-					sprite.x + offset.x,
-					sprite.y + offset.y,
-					width,
-					height
-				)
-			else
-				context.drawImage(sprite.texture, sprite.x + offset.x, sprite.y + offset.y)
-		}
+				this.drawCharacter(charStr)
 	}
 }
 
