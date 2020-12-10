@@ -50,14 +50,21 @@ export function assert(value: any, ...guards: Array<TypeGuard<any, any>>) {
 	if (guards.length) {
 		for (const guard of guards)
 			if (!guard(value))
-				throw new AssertError(`${value} failed ${guard.name || "assertion"}: got ${getType(value)}`)
+				throw new AssertError(`${guard.name || "assertion"} failed: got ${getType(value)}`)
 	} else if (!value)
-		throw new AssertError(`${value} failed assertion: got ${getType(value)}`)
+		throw new AssertError(`assertion failed: got ${getType(value)}`)
 }
 
 export function getType(value: any) {
-	if (value && value.constructor)
-		return value.constructor.name
+	const typeofValue = typeof value
 
-	return typeof value
+	if (typeofValue == "object") {
+		if (!value)
+			return "null"
+
+		if (typeof value.constructor == "function" && value.constructor.name)
+			return value.constructor.name
+	}
+
+	return typeofValue
 }
