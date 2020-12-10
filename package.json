@@ -2,7 +2,7 @@
 	"name": "canvas-sprite-engine",
 	"version": "0.0.1",
 	"description": "Game Engine to work with HTML5 Canvas Element",
-	"main": "index",
+	"main": "index.js",
 	"scripts": {
 		"build": "tsc",
 		"dev": "tsc --watch",
