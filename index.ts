@@ -218,7 +218,7 @@ export class Engine {
 	newSprite({
 		x, y, layer, hidden, texture, scripts, width, index, processes, height
 	}: Partial<Sprite> = {}) {
-		new Sprite(this, {
+		return new Sprite(this, {
 			x, y, layer, hidden, texture, scripts, width, index, processes, height
 		})
 	}
@@ -228,7 +228,7 @@ export class Engine {
 		horizontalMargin = 1,
 		verticalMargin = 1
 	}: Partial<BitmapFont>) {
-		new BitmapFont(this, chars, texture, {
+		return new BitmapFont(this, chars, texture, {
 			spaceWidth, horizontalMargin, verticalMargin
 		})
 	}
@@ -259,9 +259,6 @@ export class Engine {
 	}
 
 	main() {
-		if (!this.context)
-			throw new Error("no context :(")
-
 		requestAnimationFrame(this.main)
 
 		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
@@ -360,32 +357,43 @@ class Sprite {
 	}
 
 	overlapsPoint(x: number, y: number) {
-		return !!this.texture
-			&& x > this.x
+		return x > this.x
 			&& x < this.x + this.texture.width
 			&& y > this.y
 			&& y < this.y + this.texture.height
 	}
 
 	overlapsSprite({ x, y, texture }: Sprite) {
-		return !!texture && (
-				this.overlapsPoint(x                , y                 )
-			||	this.overlapsPoint(x + texture.width, y                 )
-			||	this.overlapsPoint(x                , y + texture.height)
-			||	this.overlapsPoint(x + texture.width, y + texture.height)
-		)
+		// const maxAx = this.x + this.texture.width
+		// const minBx = x
+		// const minAx = this.x
+		// const maxBx = x + texture.width
+		// const minAy = this.y
+		// const maxBy = y + texture.height
+		// const maxAy = this.y + this.texture.height
+		// const minBy = y
+
+		// return !(
+		// 		this.x + this.texture.width < x
+		// 	||	x + texture.width < this.x
+		// 	||	y + texture.height < this.y
+		// 	||	this.y + this.texture.height < y
+		// )
+
+		return this.x + this.texture.width >= x
+			&& this.x <= x + texture.width
+			&& this.y <= y + texture.height
+			&& this.y + this.texture.height >= y
 	}
 
 	remove() {
-		const { sprites } = this.engine
-
-		sprites.splice(sprites.indexOf(this), 1)
+		this.engine.sprites.splice(this.engine.sprites.indexOf(this), 1)
 
 		return this
 	}
 }
 
-export class BitmapFont {
+class BitmapFont {
 	texture: Texture
 	height: number
 	x = 0
